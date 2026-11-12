@@ -1,0 +1,19 @@
+#pragma once
+#include <cstdint>
+#include <string_view>
+
+namespace grow::domain
+{
+
+    struct SystemVersion
+    {
+        static constexpr std::uint16_t kMajor = @PROJECT_VERSION_MAJOR @;
+        static constexpr std::uint16_t kMinor = @PROJECT_VERSION_MINOR @;
+        static constexpr std::uint16_t kPatch = @PROJECT_VERSION_PATCH @;
+
+        static constexpr std::string_view kVersionString = "@PROJECT_VERSION@";
+        static constexpr std::string_view kGitCommitHash = "@GIT_COMMIT_HASH@";
+        static constexpr std::string_view kFullBuildTag = "v@PROJECT_VERSION@+@GIT_COMMIT_HASH@";
+    };
+
+} // namespace grow::domain
