@@ -68,7 +68,9 @@ The codebase is strictly partitioned so that `core/` has **zero external depende
 
 ```text
 growtent-cpp/
-├── CMakeLists.txt                        # Modern Target-Based CMake (C++20, GoogleTest, Qt6)
+├── CMakeLists.txt                        # Modern Target-Based CMake (C++20, GoogleTest, Qt6, Version Gen)
+├── VERSION                               # Single Source of Truth Semantic Version (e.g. 0.1.0)
+├── CHANGELOG.md                          # Keep-a-Changelog release history per Milestone/PR
 ├── GEMINI.md                             # Socratic C++20 Mentor & Code Review Rules
 ├── README.md                             # Project Documentation
 ├── docs/
@@ -76,6 +78,7 @@ growtent-cpp/
 ├── core/                                 # 100% Pure C++20 Domain & Control Logic (Zero Heap / Zero OS deps)
 │   └── include/
 │       ├── domain/
+│       │   ├── Version.hpp.in            # CMake template -> generates constexpr Version.hpp with Git SHA
 │       │   ├── Types.hpp                 # Strong physical units, <=> operator, literals, HardwareLimits
 │       │   └── TentSetupConfig.hpp       # Stage 0 configurable setup, volume & purge math
 │       ├── services/
@@ -101,10 +104,26 @@ growtent-cpp/
 │   ├── SetupWizardPage.qml               # Interactive Stage 0 Tent Provisioning UI
 │   └── MainDashboard.qml                 # Industrial dark-mode dashboard + Qt Graphs real-time plots
 └── tests/                                # Automated GoogleTest Suite
-    ├── test_milestone1.cpp               # Types, TentSetupConfig, VpdCalculator & PowerAuditor tests
+    ├── test_milestone1.cpp               # Version, Types, TentSetupConfig, VpdCalculator & PowerAuditor
     ├── test_milestone2.cpp               # Photoperiod, ExhaustFsm, Thermal & Irrigation tests
     └── test_milestone3.cpp               # RingBuffer & ControlLoopEngine concurrency tests
 ```
+
+---
+
+## 🏷️ Firmware & Software Versioning Strategy (Production-Ready)
+
+To support traceability in production, OTA firmware updates on the ESP32, and diagnostic reporting on the Qt 6 dashboard, the project enforces **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)** with automatic CMake + Git injection:
+
+1. **`VERSION` File (Single Source of Truth):** Located at the repository root (e.g., `0.1.0`). Read directly by `CMakeLists.txt` at configure time.
+2. **Compile-Time C++20 Header Generation (`core/include/domain/Version.hpp.in`):** CMake extracts the `MAJOR`, `MINOR`, `PATCH` numbers and the current **Git Commit Short SHA** (`git rev-parse --short HEAD`) and generates `build/generated/domain/Version.hpp` containing `static constexpr std::string_view` constants (`Zero Heap Allocation`—no `std::string` dynamic memory!).
+3. **`CHANGELOG.md`:** Tracks every merged Pull Request and Milestone following the *Keep a Changelog* standard.
+4. **Annotated Git Tags per Milestone:**
+   * `v0.1.0` — Milestone 1 Complete (Domain Core, Configurable Setup, VPD & Power Auditor)
+   * `v0.2.0` — Milestone 2 Complete (Deterministic Controllers & State Machines)
+   * `v0.3.0` — Milestone 3 Complete (HAL, Mock Simulator, RingBuffer & Concurrency Engine)
+   * `v0.4.0` — Milestone 4 Complete (Qt 6 Setup Wizard, Dashboard & Live HA Shadow Mode)
+   * `v1.0.0` — Milestone 5 Complete (Production ESP32 Firmware Cutover)
 
 ---
 
@@ -112,7 +131,7 @@ growtent-cpp/
 
 | Embedded C Pattern Replaced | Modern C++20/23 Paradigm Used | Where Applied |
 | :--- | :--- | :--- |
-| `#define` constants & magic numbers | `static constexpr` & User-Defined Literals (`280.0_W`, `23.5_C`) | `Types.hpp`, `TentSetupConfig.hpp` |
+| `#define` constants & `char*` version macros | `static constexpr` & `std::string_view` + User-Defined Literals | `Version.hpp`, `Types.hpp`, `TentSetupConfig.hpp` |
 | `typedef double` unit aliases | Zero-cost strong unit `struct` wrappers + `operator<=>` | `Types.hpp` |
 | `-1.0f` error floats & output pointers | `[[nodiscard]] std::optional<T>` & `std::nullopt` | `VpdCalculator.hpp`, `IHardwarePort.hpp` |
 | Raw C arrays & `malloc`/`free` | `std::array<T, MaxN>` + `std::span<const T>` | `TentSetupConfig.hpp`, `PowerAuditor.hpp` |
@@ -133,7 +152,7 @@ growtent-cpp/
 ### Quick Start: Configure, Build & Run Unit Tests
 
 ```powershell
-# 1. Configure CMake with Ninja and g++
+# 1. Configure CMake with Ninja and g++ (automatically generates Version.hpp with Git SHA)
 cmake -B build -G Ninja -DCMAKE_CXX_COMPILER=g++
 
 # 2. Compile with strict compiler warnings (-Wall -Wextra -Wpedantic -Wconversion)
@@ -148,16 +167,16 @@ ctest --test-dir build --output-on-failure
 
 ## 🗺️ Development Roadmap & Pull Request Plan
 
-| Milestone | Pull Request / Branch | Deliverables | Status |
-| :--- | :--- | :--- | :--- |
-| **Setup** | `main` | Project skeleton, `CMakeLists.txt`, `.gitignore`, `README.md`, `docs/SRS_BLUEPRINT.md` | ✅ Ready |
-| **Milestone 1** | **PR #1:** `feat/m1-strong-types-and-setup` | `Types.hpp` + `TentSetupConfig.hpp` + Setup & Volume unit tests | 🚧 In Progress |
-| **Milestone 1** | **PR #2:** `feat/m1-vpd-and-power-auditor` | `VpdCalculator.hpp` + `PowerAuditor.hpp` + Complete Milestone 1 test suite | ⏳ Planned |
-| **Milestone 2** | **PR #3:** `feat/m2-photoperiod-and-exhaust` | `PhotoperiodScheduler.hpp` (660nm/730nm) + `ExhaustFsm.hpp` (`std::variant`) | ⏳ Planned |
-| **Milestone 2** | **PR #4:** `feat/m2-thermal-and-irrigation` | `ThermalController.hpp` + `IrrigationController.hpp` + `AlertManager.hpp` | ⏳ Planned |
-| **Milestone 3** | **PR #5:** `feat/m3-hal-and-concurrency` | `IHardwarePort.hpp`, `MockHardwareDriver.hpp`, `RingBuffer.hpp`, `ControlLoopEngine.hpp` | ⏳ Planned |
-| **Milestone 4** | **PR #6:** `feat/m4-qt6-dashboard-and-shadow` | Qt 6 Setup Wizard & Live Dashboard + `HaShadowDriver.hpp` (Live HA Read-Only Twin) | ⏳ Planned |
-| **Milestone 5** | **PR #7:** `feat/m5-esp32-native-firmware` | Native ESP32 C++ firmware integration & 2-minute local heartbeat fail-safe | ⏳ Planned |
+| Release Tag | Milestone | Pull Request / Branch | Deliverables | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| `v0.0.1` | **Setup** | `main` | Project skeleton, `VERSION`, `CHANGELOG.md`, `CMakeLists.txt`, `README.md`, `SRS_BLUEPRINT.md` | ✅ Ready |
+| — | **Milestone 1** | **PR #1:** `feat/m1-strong-types-and-setup` | `Version.hpp`, `Types.hpp` + `TentSetupConfig.hpp` + Setup & Volume unit tests | 🚧 In Progress |
+| `v0.1.0` | **Milestone 1** | **PR #2:** `feat/m1-vpd-and-power-auditor` | `VpdCalculator.hpp` + `PowerAuditor.hpp` + Complete Milestone 1 test suite | ⏳ Planned |
+| — | **Milestone 2** | **PR #3:** `feat/m2-photoperiod-and-exhaust` | `PhotoperiodScheduler.hpp` (660nm/730nm) + `ExhaustFsm.hpp` (`std::variant`) | ⏳ Planned |
+| `v0.2.0` | **Milestone 2** | **PR #4:** `feat/m2-thermal-and-irrigation` | `ThermalController.hpp` + `IrrigationController.hpp` + `AlertManager.hpp` | ⏳ Planned |
+| `v0.3.0` | **Milestone 3** | **PR #5:** `feat/m3-hal-and-concurrency` | `IHardwarePort.hpp`, `MockHardwareDriver.hpp`, `RingBuffer.hpp`, `ControlLoopEngine.hpp` | ⏳ Planned |
+| `v0.4.0` | **Milestone 4** | **PR #6:** `feat/m4-qt6-dashboard-and-shadow` | Qt 6 Setup Wizard & Live Dashboard + `HaShadowDriver.hpp` (Live HA Read-Only Twin) | ⏳ Planned |
+| `v1.0.0` | **Milestone 5** | **PR #7:** `feat/m5-esp32-native-firmware` | Native ESP32 C++ firmware integration & 2-minute local heartbeat fail-safe | ⏳ Planned |
 
 ---
 
