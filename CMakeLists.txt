@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 
+
 # 1. Read Semantic Version from the root VERSION file (Single Source of Truth)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" GROWTENT_VERSION_STR LIMIT_COUNT 1)
 string(STRIP "${GROWTENT_VERSION_STR}" GROWTENT_VERSION_STR)
 
+
 project(GrowTentController VERSION ${GROWTENT_VERSION_STR} LANGUAGES CXX)
+
 
 # 2. Extract current Git short commit hash (e.g., "a1b2c3d") for firmware traceability
 find_package(Git QUIET)
@@ -21,6 +24,7 @@ if(NOT GIT_COMMIT_HASH)
     set(GIT_COMMIT_HASH "dev")
 endif()
 
+
 # 3. Generate build/generated/domain/Version.hpp from Version.hpp.in
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/core/include/domain/Version.hpp.in"
@@ -28,18 +32,21 @@ configure_file(
     @ONLY
 )
 
-# 4. Enforce strict Modern C++20
+
+# 4. Enforce strict Modern C++20 without compiler-specific extensions
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 5. Pure Header-Only Core Domain Target
+
+# 5. Pure Header-Only Core Domain Target (Zero external dependencies)
 add_library(grow_core INTERFACE)
 target_include_directories(grow_core INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
     ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
+
 
 # 6. Strict professional compiler warnings
 if(MSVC)
@@ -48,7 +55,8 @@ else()
     target_compile_options(grow_core INTERFACE -Wall -Wextra -Wpedantic -Wconversion)
 endif()
 
-# 7. Unit Testing with GoogleTest
+
+# 7. Unit Testing with GoogleTest (Auto-fetched by CMake)
 include(FetchContent)
 FetchContent_Declare(
     googletest
@@ -58,7 +66,9 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+
 enable_testing()
+
 
 add_executable(unit_tests
     tests/test_milestone1.cpp
@@ -68,5 +78,19 @@ target_link_libraries(unit_tests PRIVATE
     GTest::gtest_main
 )
 
+
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
+
+
+# 8. Optional Doxygen API Documentation Target (`cmake --build build --target docs`)
+find_package(Doxygen QUIET)
+if(DOXYGEN_FOUND)
+    set(DOXYGEN_GENERATE_HTML YES)
+    set(DOXYGEN_GENERATE_MAN NO)
+    set(DOXYGEN_EXTRACT_ALL YES)
+    doxygen_add_docs(docs
+        "${CMAKE_CURRENT_SOURCE_DIR}/core/include"
+        COMMENT "Generating Grow Tent OS C++20 Doxygen API documentation..."
+    )
+endif()
