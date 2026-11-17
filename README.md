@@ -1,186 +1,121 @@
 # 🌱 Grow Tent OS (`growtent-cpp`)
 
-**Autonomous Indoor Cultivation Climate, Spectral Lighting, Electrical Power Auditor & Multi-Plant Irrigation Controller**
-*Built with Modern ISO C++20/23, Hexagonal Architecture, Zero-Heap Domain Core, and Qt 6 / QML.*
+
+**Autonomous Indoor Cultivation Climate, Spectral Lighting, Self-Calibrating Power Auditor & Multi-Plant Irrigation Controller**
+*Built with Modern ISO C++20/23, Hexagonal Architecture, Zero-Heap Core & Qt 6 / QML*
+
 
 ---
+
 
 ## 📖 Overview
 
-**Grow Tent OS (`growtent-cpp`)** is an industrial-grade, fault-tolerant environmental and irrigation control system for indoor cultivation enclosures. Originally prototyped and validated in production on **Home Assistant + ESPHome**, this project re-architects the entire control, psychrometric, electrical auditing, and crop-steering engine into **Modern ISO C++20/23** with a commercial embedded **Qt 6 + QML** dashboard.
 
-Unlike hardcoded microcontroller scripts, `growtent-cpp` operates as a **configurable operating system**: users provision their tent geometry, exhaust airflow, passive/active intake, supplemental lighting spectra, heaters, circulation fans, and $1 \dots 8$ independent plant irrigation zones through a **Setup Wizard**, while the core engine enforces deterministic hardware interlocks and real-time electrical power auditing.
+**Grow Tent OS (`growtent-cpp`)** is an industrial-grade environmental, lighting, electrical-diagnostics, and multi-plant irrigation control system designed for indoor cultivation enclosures.
 
----
 
-## ✨ Key Engineering & Agronomic Features
+Evolving from a live **Home Assistant + ESPHome** setup, this project implements a deterministic, hardware-agnostic **C++20 Core Engine** paired with a **Qt 6 / QML Embedded & Desktop Dashboard**—capable of running in pure simulation, read-only **Shadow Mode** alongside Home Assistant, or natively on **Raspberry Pi / ESP32** in production.
 
-### 1. Stage 0: Configurable Hardware Provisioning (`TentSetupConfig`)
-* **Enclosure Geometry:** Configurable Width $\times$ Depth $\times$ Height ($\text{cm}$) with compile-time volume calculation ($V_{\text{tent}}$ in $\text{m}^3$).
-* **Static Compile-Time Capacity Limits (`Zero Heap Allocation`):**
-  * **Climate Sensors (`2 pairs`):** $1$ Internal ($\text{Temp} + \text{RH}$) and $1$ External ($\text{Temp} + \text{RH}$) sensor pair.
-  * **Main Light (`1 unit`):** Primary LED Quantum Board ($18/6$, $12/12$, or $20/4$ photoperiods).
-  * **Auxiliary Spectral Lights (`0..2 units`):** Configurable per bar for **660nm Deep Red** (synchronous with main light) or **730nm Far Red / Emerson Effect** (turns ON $15\text{ min}$ before lights-off and remains ON for $15\text{ min}$ after lights-off).
-  * **Nighttime Ceramic Heaters (`0..2 units`):** Hardware-interlocked against main lighting with cold-front optimization.
-  * **Internal Circulation / Clip Fans (`0..3 units`):** Independent ON/OFF canopy boundary-layer disruption.
-  * **Air Intake (`0..1 unit`):** Selectable between `Passive` ($0\text{ W}$, no relay) and `Active` (ON/OFF relay with calibrated wattage).
-  * **Plant Zones & Water Pumps (`1..8 units`):** Each plant zone owns $1$ Capacitive Soil Moisture sensor (`SoilMoisture`) and $1$ dedicated Water Pump (`WaterPump`) with calibrated flow rate ($\text{L/min}$) and power ($\text{W}$).
 
-### 2. Dual-Zone Psychrometric Engine (`VpdCalculator`)
-Computes real-time psychrometric telemetry for both **Internal** and **External** sensors using the Magnus-Tetens equations:
-* **Saturation Vapor Pressure ($\text{SVP}$):**
-  $$\text{SVP}(T) = 0.61078 \times \exp\left(\frac{17.27 \times T}{T + 237.3}\right) \quad [\text{kPa}]$$
-* **Global Air / Canopy Vapor Pressure Deficit ($\text{VPD}$):**
-  $$\text{VPD} = \max\left(0.0,\ \text{SVP}(T_{\text{air}} + \Delta T_{\text{leaf}}) - \text{SVP}(T_{\text{air}}) \times \frac{\text{RH}}{100.0}\right) \quad [\text{kPa}]$$
-* **Dew Point ($T_{\text{dew}}$):**
-  $$\alpha(T, \text{RH}) = \frac{17.27 \times T}{237.7 + T} + \ln\left(\frac{\text{RH}}{100.0}\right), \quad T_{\text{dew}} = \frac{237.7 \times \alpha(T, \text{RH})}{17.27 - \alpha(T, \text{RH})} \quad [^\circ\text{C}]$$
+### ✨ Key Engineering Highlights
+- **Zero-Heap Embedded Core:** Uses compile-time capacity bounds (`std::array` + `std::span`) with zero `malloc`/`new` inside `core/`.
+- **Compile-Time Dimensional Safety:** Physical units (`Celsius`, `RelativeHumidity`, `SoilMoisture`, `Kilopascal`, `Watts`, `CubicMeters`, `Liters`, etc.) are zero-cost strong types with C++20 `operator<=>`, offset/accumulation operators, and user-defined literals (`23.5_C`, `1.2_kPa`, `280.0_W`).
+- **Plug-and-Play Auto-Calibration (`PowerCalibrator`):** Users never hardcode actuator wattages. During Stage 0 setup (or after swapping an LED panel/fan), an automated step-response routine measures standby idle power and energizes each actuator in isolation (with `5s` inrush settling) to learn exact wattage signatures.
+- **3D Non-Intrusive Load Monitoring (`PowerAuditor`):** Using a single main-bus PZEM-004T wattmeter, isolates stuck relays (`OverPowerStuckRelay`) and burned/unplugged actuators (`UnderPowerOpenLoad`) down to the specific `{LoadKind, index}` via adaptive tolerance (`max(3.0 W, 4% * P_theo)`).
+- **Psychrometric & Spectral Precision:** Dual-zone (Internal & External) Magnus-Tetens VPD/Dew Point engine, Default-ON exhaust with dynamic volume-based O2 refresh cycles, nighttime thermal interlock with cold-front protection, `660nm`/`730nm` auxiliary lighting schedules, and 8-zone pulsed/continuous crop-steering irrigation.
 
-### 3. Smart Exhaust FSM (`ExhaustFsm`) — Default-ON with Dynamic Purge Math
-* **Default-ON Operation:** Runs $100\%$ continuously when climate is within target bounds.
-* **High-VPD Moisture Retention Cycle:** If $\text{VPD}_{\text{in}} > 1.7\text{ kPa}$ for $3\text{ min}$ (and $T_{\text{in}} < 28.0^\circ\text{C}$), turns OFF for $15\text{ min}$ to trap plant transpiration, then purges $\text{O}_2/\text{CO}_2$ for a dynamically calculated duration $t_{\text{purge}}$ based on tent volume $V_{\text{tent}}$, exhaust airflow $Q_{\text{m}^3/\text{h}}$, target air exchanges ($N_{\text{exchanges}} = 5$), and carbon-filter safety margin ($M_{\text{safety}}$):
-  $$t_{\text{purge (s)}} = \left\lceil \left( \frac{V_{\text{tent}} \times N_{\text{exchanges}}}{Q_{\text{m}^3/\text{h}}} \times 3600 \right) \times (1.0 + M_{\text{safety}}) \right\rceil$$
-* **Hysteresis & Thermal Override:** Immediately exits cycling back to $100\%$ ON when $\text{VPD}_{\text{in}} \le 1.5\text{ kPa}$ (for $3\text{ min}$) or unconditionally if $T_{\text{in}} \ge 28.0^\circ\text{C}$ (for $2\text{ min}$).
-
-### 4. Nighttime Thermal Controller (`ThermalController`)
-* **Hard Safety Interlock:** Strictly forbids any heater ($0..2$) from activating while the Main Light is ON.
-* **Cold-Front Setpoint Optimization:** Targets $23.5^\circ\text{C}$ during normal nights ($T_{\text{ext}} \ge 21.0^\circ\text{C}$) and automatically drops target to $22.0^\circ\text{C}$ when $T_{\text{ext}} < 21.0^\circ\text{C}$ to prevent $100\%$ heater duty-cycle saturation.
-* **Relay Protection:** $\pm 0.5^\circ\text{C}$ hysteresis band with $3\text{ min}$ minimum cycle/cooldown protection.
-
-### 5. Multi-Mode Crop-Steering Irrigation (`IrrigationController`)
-Each of the $1 \dots 8$ plants runs an independent state machine supporting:
-* **Control Mode:** `Manual` vs. `Auto`.
-* **Auto Triggers:** `BySoilMoisture` ($\text{moisture} < \text{threshold}$ for $3\text{ min}$) or `ByTimeInterval` (e.g., every $72\text{h}$ / $3\text{ days}$).
-* **Dosing Calculation:** `ByVolumeLiters` ($t_{\text{total}} = \lceil \frac{V_{\text{L}}}{Q_{\text{L/min}}} \times 60 \rceil$) or `ByDurationSeconds`.
-* **Delivery Strategy:** `Continuous` (single uninterrupted run) or `Pulsed` (multi-pulse ON + soak OFF intervals accumulating exact active pumping time until $t_{\text{total}}$ is reached).
-
-### 6. Active PZEM-004T Electrical Auditor & Alert Engine (`PowerAuditor` & `AlertManager`)
-Continuously cross-references real PZEM-004T AC power measurements against the theoretical power sum of all active relays:
-* **Immediate Interlock Fault (`0s`):** Main Light and Heater active simultaneously.
-* **4-Way Lighting Auditor (`5 min`, $\ge 220\text{ W}$):** Distinguishes between *Burned Bulb/Driver*, *Physically Welded Relay* (`Relé Colado`), and *Missed Software Timer* (with automatic self-healing).
-* **Exhaust Auditor (`3 min`, $\pm 35.0\text{ W}$) & Heater/General Auditor (`3 min`, $\pm 50.0\text{ W}$).**
-* **Agronomic Alerts:** Critical High VPD ($> 1.6\text{ kPa}$ for $10\text{ min}$), Critical Low VPD / Bud Rot Risk ($< 0.4\text{ kPa}$ for $10\text{ min}$), Foliar Stress ($> 1.7\text{ kPa}$ for $120\text{ min}$), and Dew Point Condensation Proximity ($T_{\text{in}} - T_{\text{dew}} \le 2.0^\circ\text{C}$ for $5\text{ min}$).
 
 ---
 
-## 🏗️ System Architecture (Hexagonal / Ports & Adapters)
 
-The codebase is strictly partitioned so that `core/` has **zero external dependencies** (only the C++20 Standard Library `std::`), enabling the exact same domain code to compile on Windows/Linux Desktop and bare-metal ESP32:
+## 🏗️ Hexagonal Repository Structure
+
 
 ```text
 growtent-cpp/
-├── CMakeLists.txt                        # Modern Target-Based CMake (C++20, GoogleTest, Qt6, Version Gen)
-├── VERSION                               # Single Source of Truth Semantic Version (e.g. 0.1.0)
-├── CHANGELOG.md                          # Keep-a-Changelog release history per Milestone/PR
-├── GEMINI.md                             # Socratic C++20 Mentor & Code Review Rules
-├── README.md                             # Project Documentation
+├── CMakeLists.txt                        # C++20 build, Git SHA Version generator, GTest & Doxygen
+├── VERSION                               # Single-source-of-truth Semantic Version (e.g., 0.1.0)
+├── CHANGELOG.md                          # Release history following Keep a Changelog & SemVer
+├── GEMINI.md                             # Socratic C++20 Mentor & PR Review rules
 ├── docs/
-│   └── SRS_BLUEPRINT.md                  # Full Software Requirements Spec & C-to-C++20 Guide
-├── core/                                 # 100% Pure C++20 Domain & Control Logic (Zero Heap / Zero OS deps)
+│   └── SRS_BLUEPRINT.md                  # Master Software Requirements Specification (v2.3)
+├── core/                                 # 100% Pure C++20 Domain & Control Logic (Zero OS/Qt deps)
 │   └── include/
 │       ├── domain/
-│       │   ├── Version.hpp.in            # CMake template -> generates constexpr Version.hpp with Git SHA
-│       │   ├── Types.hpp                 # Strong physical units, <=> operator, literals, HardwareLimits
-│       │   └── TentSetupConfig.hpp       # Stage 0 configurable setup, volume & purge math
+│       │   ├── Version.hpp.in            # CMake template -> build/generated/domain/Version.hpp
+│       │   ├── Types.hpp                 # Strong physical units, literals, PlantId & HardwareLimits
+│       │   └── TentSetupConfig.hpp       # Stage 0 topology & learned wattage profile
 │       ├── services/
-│       │   ├── VpdCalculator.hpp         # Magnus-Tetens SVP, VPD & Dew Point (Internal & External)
-│       │   ├── PowerAuditor.hpp          # Dynamic theoretical power sum & 3-min fault debounce
-│       │   └── AlertManager.hpp          # Environmental & hardware fault alert registry
+│       │   ├── VpdCalculator.hpp         # Dual-zone Magnus-Tetens SVP, VPD & Dew Point
+│       │   ├── PowerAuditor.hpp          # Adaptive 3D load-signature fault isolator
+│       │   ├── PowerCalibrator.hpp       # Step-response automatic wattage calibrator
+│       │   └── AlertManager.hpp          # VPD, Dew Point & hardware fault registry (M2)
 │       └── controllers/
-│           ├── PhotoperiodScheduler.hpp  # 18/6, 12/12, 20/4 + 660nm/730nm Aux Light scheduler
-│           ├── ExhaustFsm.hpp            # std::variant / std::visit Default-ON + VPD retention FSM
-│           ├── ThermalController.hpp     # Nighttime heater hysteresis + Main Light interlock
-│           └── IrrigationController.hpp  # 1..8 Plant FSMs (Manual/Auto, Liters/Time, Continuous/Pulsed)
-├── hal/                                  # Hardware Abstraction Layer (Ports & Adapters)
-│   └── include/
-│       ├── IHardwarePort.hpp             # Pure virtual interface / C++20 Concept for Sensors & Relays
-│       ├── MockHardwareDriver.hpp        # Synthetic climate generator & fault injector
-│       └── HaShadowDriver.hpp            # QtWebSockets read-only live Home Assistant Digital Twin
-├── app/                                  # Concurrency, Storage & Orchestration
-│   └── include/
-│       ├── RingBuffer.hpp                # Fixed-capacity template circular buffer for 24h plots
-│       └── ControlLoopEngine.hpp         # std::jthread deterministic tick loop + std::scoped_lock
-├── ui/                                   # Qt 6 + QML Commercial Embedded Presentation Layer
-│   ├── DashboardBridge.hpp               # QObject Q_PROPERTY bridge exposing Core to QML
-│   ├── SetupWizardPage.qml               # Interactive Stage 0 Tent Provisioning UI
-│   └── MainDashboard.qml                 # Industrial dark-mode dashboard + Qt Graphs real-time plots
+│           ├── PhotoperiodScheduler.hpp  # 18/6, 12/12, 20/4 + 660nm/730nm aux schedules (M2)
+│           ├── ExhaustFsm.hpp            # std::variant Default-ON + VPD retention FSM (M2)
+│           ├── ThermalController.hpp     # Nighttime heater hysteresis + light interlock (M2)
+│           └── IrrigationController.hpp  # 1..8 plant Manual/Auto, Liters/Time, Pulsed/Cont (M2)
+├── hal/                                  # Hardware Abstraction Layer (Milestone 3 & 4)
+├── app/                                  # RingBuffer & std::jthread ControlLoopEngine (Milestone 3)
+├── ui/                                   # Qt 6 + QML Setup Wizard & Live Dashboard (Milestone 4)
 └── tests/                                # Automated GoogleTest Suite
-    ├── test_milestone1.cpp               # Version, Types, TentSetupConfig, VpdCalculator & PowerAuditor
-    ├── test_milestone2.cpp               # Photoperiod, ExhaustFsm, Thermal & Irrigation tests
-    └── test_milestone3.cpp               # RingBuffer & ControlLoopEngine concurrency tests
+    └── test_milestone1.cpp
 ```
 
----
-
-## 🏷️ Firmware & Software Versioning Strategy (Production-Ready)
-
-To support traceability in production, OTA firmware updates on the ESP32, and diagnostic reporting on the Qt 6 dashboard, the project enforces **Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`)** with automatic CMake + Git injection:
-
-1. **`VERSION` File (Single Source of Truth):** Located at the repository root (e.g., `0.1.0`). Read directly by `CMakeLists.txt` at configure time.
-2. **Compile-Time C++20 Header Generation (`core/include/domain/Version.hpp.in`):** CMake extracts the `MAJOR`, `MINOR`, `PATCH` numbers and the current **Git Commit Short SHA** (`git rev-parse --short HEAD`) and generates `build/generated/domain/Version.hpp` containing `static constexpr std::string_view` constants (`Zero Heap Allocation`—no `std::string` dynamic memory!).
-3. **`CHANGELOG.md`:** Tracks every merged Pull Request and Milestone following the *Keep a Changelog* standard.
-4. **Annotated Git Tags per Milestone:**
-   * `v0.1.0` — Milestone 1 Complete (Domain Core, Configurable Setup, VPD & Power Auditor)
-   * `v0.2.0` — Milestone 2 Complete (Deterministic Controllers & State Machines)
-   * `v0.3.0` — Milestone 3 Complete (HAL, Mock Simulator, RingBuffer & Concurrency Engine)
-   * `v0.4.0` — Milestone 4 Complete (Qt 6 Setup Wizard, Dashboard & Live HA Shadow Mode)
-   * `v1.0.0` — Milestone 5 Complete (Production ESP32 Firmware Cutover)
 
 ---
 
-## 🧠 Modern C++20/23 Paradigms Practiced
-
-| Embedded C Pattern Replaced | Modern C++20/23 Paradigm Used | Where Applied |
-| :--- | :--- | :--- |
-| `#define` constants & `char*` version macros | `static constexpr` & `std::string_view` + User-Defined Literals | `Version.hpp`, `Types.hpp`, `TentSetupConfig.hpp` |
-| `typedef double` unit aliases | Zero-cost strong unit `struct` wrappers + `operator<=>` | `Types.hpp` |
-| `-1.0f` error floats & output pointers | `[[nodiscard]] std::optional<T>` & `std::nullopt` | `VpdCalculator.hpp`, `IHardwarePort.hpp` |
-| Raw C arrays & `malloc`/`free` | `std::array<T, MaxN>` + `std::span<const T>` | `TentSetupConfig.hpp`, `PowerAuditor.hpp` |
-| Giant `switch(enum)` state machines | `std::variant<States...>` + `std::visit` | `ExhaustFsm.hpp`, `IrrigationController.hpp` |
-| Global `millis()` tick math | Deterministic injected `std::chrono::steady_clock::time_point` | All Services, Controllers & Unit Tests |
-| `pthread` + manual mutex unlock | `std::jthread`, `std::stop_token` & RAII `std::scoped_lock` | `ControlLoopEngine.hpp` |
-
----
 
 ## 🛠️ Prerequisites & Build Instructions
 
+
 ### Toolchain Requirements
-* **Compiler:** GCC 13+ / MinGW-w64 15.1+ (or Clang 16+ / MSVC 2022) with full **C++20** support
-* **Build System:** CMake `3.20+` and `Ninja` `1.10+`
-* **UI Framework (Milestone 4):** Qt `6.8+` / `6.12+` (`Qt Quick`, `Qt Graphs`, `Qt WebSockets`)
-* **Testing Framework:** `GoogleTest v1.14.0` (automatically fetched by CMake `FetchContent`)
+- **Compiler:** GCC 13+ / MinGW-w64 15+ (`g++` with full C++20 support), Clang 16+, or MSVC 2022
+- **Build System:** CMake `3.20+` and Ninja `1.10+`
+- **UI Framework (Milestone 4):** Qt `6.7+` (`Qt Quick`, `Qt Graphs`, `Qt WebSockets`)
+- **Optional:** Doxygen (for generating HTML API docs via `--target docs`)
 
-### Quick Start: Configure, Build & Run Unit Tests
 
+### Configure, Compile & Run Unit Tests
 ```powershell
-# 1. Configure CMake with Ninja and g++ (automatically generates Version.hpp with Git SHA)
+# 1. Configure Ninja build and fetch GoogleTest
 cmake -B build -G Ninja -DCMAKE_CXX_COMPILER=g++
 
-# 2. Compile with strict compiler warnings (-Wall -Wextra -Wpedantic -Wconversion)
+
+# 2. Compile with strict C++20 warnings (-Wall -Wextra -Wpedantic -Wconversion)
 cmake --build build
 
-# 3. Run the automated unit test suite via CTest (or directly)
+
+# 3. Execute the unit test suite
 ctest --test-dir build --output-on-failure
+# Or run directly with colorful output:
 .\build\unit_tests.exe
 ```
 
----
-
-## 🗺️ Development Roadmap & Pull Request Plan
-
-| Release Tag | Milestone | Pull Request / Branch | Deliverables | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| `v0.0.1` | **Setup** | `main` | Project skeleton, `VERSION`, `CHANGELOG.md`, `CMakeLists.txt`, `README.md`, `SRS_BLUEPRINT.md` | ✅ Ready |
-| — | **Milestone 1** | **PR #1:** `feat/m1-strong-types-and-setup` | `Version.hpp`, `Types.hpp` + `TentSetupConfig.hpp` + Setup & Volume unit tests | 🚧 In Progress |
-| `v0.1.0` | **Milestone 1** | **PR #2:** `feat/m1-vpd-and-power-auditor` | `VpdCalculator.hpp` + `PowerAuditor.hpp` + Complete Milestone 1 test suite | ⏳ Planned |
-| — | **Milestone 2** | **PR #3:** `feat/m2-photoperiod-and-exhaust` | `PhotoperiodScheduler.hpp` (660nm/730nm) + `ExhaustFsm.hpp` (`std::variant`) | ⏳ Planned |
-| `v0.2.0` | **Milestone 2** | **PR #4:** `feat/m2-thermal-and-irrigation` | `ThermalController.hpp` + `IrrigationController.hpp` + `AlertManager.hpp` | ⏳ Planned |
-| `v0.3.0` | **Milestone 3** | **PR #5:** `feat/m3-hal-and-concurrency` | `IHardwarePort.hpp`, `MockHardwareDriver.hpp`, `RingBuffer.hpp`, `ControlLoopEngine.hpp` | ⏳ Planned |
-| `v0.4.0` | **Milestone 4** | **PR #6:** `feat/m4-qt6-dashboard-and-shadow` | Qt 6 Setup Wizard & Live Dashboard + `HaShadowDriver.hpp` (Live HA Read-Only Twin) | ⏳ Planned |
-| `v1.0.0` | **Milestone 5** | **PR #7:** `feat/m5-esp32-native-firmware` | Native ESP32 C++ firmware integration & 2-minute local heartbeat fail-safe | ⏳ Planned |
 
 ---
 
-## 👤 Author
 
-**Assis Greselle**
-*Associate Software Engineer — Embedded & Platform Systems*
+## 🏷️ Versioning & Release Traceability
+
+
+Firmware and desktop builds embed compile-time Semantic Versioning + Git commit traceability automatically:
+1. **`VERSION`:** Holds the current `MAJOR.MINOR.PATCH` string (`0.1.0`).
+2. **`Version.hpp.in` -> `Version.hpp`:** CMake injects `@PROJECT_VERSION@` and `git rev-parse --short HEAD` into `grow::domain::SystemVersion::kFullBuildTag` (e.g., `"v0.1.0+a1b2c3d"`) as zero-overhead `constexpr std::string_view` constants.
+3. **`CHANGELOG.md` & Git Tags:** Every milestone merge into `main` updates `CHANGELOG.md` and creates an annotated Git tag (`v0.1.0`, `v0.2.0`, ..., `v1.0.0`).
+
+
+---
+
+
+## 🗺️ Development Roadmap (Milestones & Pull Requests)
+
+
+| Milestone | Pull Requests | Status | Description |
+| :--- | :--- | :---: | :--- |
+| **M0: Bootstrap** | `main` (`v0.0.1`) | ✅ Done | CMake + Ninja + GTest pipeline, SemVer generator & SRS `v2.3` |
+| **M1: Domain Core** | **PR #1** (`feat/m1-strong-types-and-setup`)<br>**PR #2** (`feat/m1-vpd-and-power-auditor`) | 🚧 In Progress | Strong units, `TentSetupConfig`, `VpdCalculator`, 3D `PowerAuditor` & `PowerCalibrator` |
+| **M2: Controllers** | **PR #3** (`feat/m2-photoperiod-and-exhaust`)<br>**PR #4** (`feat/m2-thermal-and-irrigation`) | ⏳ Planned | `std::variant` FSMs for Lighting (`660nm`/`730nm`), Exhaust, Heater & 8-Plant Irrigation |
+| **M3: Concurrency** | **PR #5** (`feat/m3-hal-and-concurrency`) | ⏳ Planned | `IHardwarePort`, `MockHardwareDriver`, `RingBuffer` & `std::jthread` engine |
+| **M4: Qt 6 & Shadow** | **PR #6** (`feat/m4-qt6-dashboard-and-shadow`) | ⏳ Planned | Qt 6 Setup/Auto-Calibration Wizard, Live Graphs & Home Assistant WebSocket Shadow Mode |
+| **M5: ESP32 Native** | **PR #7** (`feat/m5-esp32-native-cutover`) | ⏳ Planned | Production ESP32 C++ firmware sharing `core/` with 2-min autonomous watchdog |
