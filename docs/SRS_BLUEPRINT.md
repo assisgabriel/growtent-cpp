@@ -124,10 +124,10 @@ Processes both **Internal** and **External** `ClimateSensorReading` pairs identi
 ## 4. Master Milestone & Pull Request Roadmap
 
 
-- **Milestone 1 — Domain Foundation, Setup, Psychrometrics & Auto-Calibrated Power Auditor:**
-  - **PR #1 (`feat/m1-strong-types-and-setup`):** `Types.hpp`, `TentSetupConfig.hpp`, initial unit tests in `test_milestone1.cpp`.
-  - **PR #2 (`feat/m1-vpd-and-power-auditor`):** `VpdCalculator.hpp`, `PowerAuditor.hpp`, `PowerCalibrator.hpp`, complete Milestone 1 test suite.
-- **Milestone 2 — Deterministic State Machines & Controllers:**
+- **Milestone 1 — Domain Foundation, Setup, Psychrometrics & Auto-Calibrated Power Auditor [STATUS: COMPLETED — v0.1.0]:**
+  - **PR #1 (`feat/m1-strong-types-and-setup`):** `Types.hpp`, `TentSetupConfig.hpp`, initial unit tests in `test_milestone1.cpp`. [MERGED]
+  - **PR #2 (`feat/m1-vpd-and-power-auditor`):** `VpdCalculator.hpp`, `PowerAuditor.hpp`, `PowerCalibrator.hpp`, complete Milestone 1 test suite. [MERGED]
+- **Milestone 2 — Deterministic State Machines & Controllers [STATUS: IN PROGRESS]:**
   - **PR #3 (`feat/m2-photoperiod-and-exhaust`):** `PhotoperiodScheduler.hpp`, `ExhaustFsm.hpp`, `test_milestone2.cpp`.
   - **PR #4 (`feat/m2-thermal-and-irrigation`):** `ThermalController.hpp`, `IrrigationController.hpp`, `AlertManager.hpp`.
 - **Milestone 3 — HAL Ports, Simulator, RingBuffer & Concurrency Engine:**

@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
 
-# 1. Read Semantic Version from the root VERSION file (Single Source of Truth)
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" GROWTENT_VERSION_STR LIMIT_COUNT 1)
+# 1. Read Semantic Version from the root VERSION/version file (Single Source of Truth)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" GROWTENT_VERSION_STR LIMIT_COUNT 1)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/version")
+    file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/version" GROWTENT_VERSION_STR LIMIT_COUNT 1)
+else()
+    set(GROWTENT_VERSION_STR "0.1.0")
+endif()
 string(STRIP "${GROWTENT_VERSION_STR}" GROWTENT_VERSION_STR)
 
 

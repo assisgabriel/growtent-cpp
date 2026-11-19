@@ -114,8 +114,8 @@ Firmware and desktop builds embed compile-time Semantic Versioning + Git commit 
 | Milestone | Pull Requests | Status | Description |
 | :--- | :--- | :---: | :--- |
 | **M0: Bootstrap** | `main` (`v0.0.1`) | ✅ Done | CMake + Ninja + GTest pipeline, SemVer generator & SRS `v2.3` |
-| **M1: Domain Core** | **PR #1** (`feat/m1-strong-types-and-setup`)<br>**PR #2** (`feat/m1-vpd-and-power-auditor`) | 🚧 In Progress | Strong units, `TentSetupConfig`, `VpdCalculator`, 3D `PowerAuditor` & `PowerCalibrator` |
-| **M2: Controllers** | **PR #3** (`feat/m2-photoperiod-and-exhaust`)<br>**PR #4** (`feat/m2-thermal-and-irrigation`) | ⏳ Planned | `std::variant` FSMs for Lighting (`660nm`/`730nm`), Exhaust, Heater & 8-Plant Irrigation |
+| **M1: Domain Core** | **PR #1** (`feat/m1-strong-types-and-setup`)<br>**PR #2** (`feat/m1-vpd-and-power-auditor`) | ✅ Done (`v0.1.0`) | Strong units, `TentSetupConfig`, `VpdCalculator`, 3D `PowerAuditor` & `PowerCalibrator` |
+| **M2: Controllers** | **PR #3** (`feat/m2-photoperiod-and-exhaust`)<br>**PR #4** (`feat/m2-thermal-and-irrigation`) | 🚧 Next / In Progress | `std::variant` FSMs for Lighting (`660nm`/`730nm`), Exhaust, Heater & 8-Plant Irrigation |
 | **M3: Concurrency** | **PR #5** (`feat/m3-hal-and-concurrency`) | ⏳ Planned | `IHardwarePort`, `MockHardwareDriver`, `RingBuffer` & `std::jthread` engine |
 | **M4: Qt 6 & Shadow** | **PR #6** (`feat/m4-qt6-dashboard-and-shadow`) | ⏳ Planned | Qt 6 Setup/Auto-Calibration Wizard, Live Graphs & Home Assistant WebSocket Shadow Mode |
 | **M5: ESP32 Native** | **PR #7** (`feat/m5-esp32-native-cutover`) | ⏳ Planned | Production ESP32 C++ firmware sharing `core/` with 2-min autonomous watchdog |
