@@ -84,9 +84,17 @@ target_link_libraries(unit_tests PRIVATE
     GTest::gtest_main
 )
 
-
 include(GoogleTest)
 gtest_discover_tests(unit_tests)
+
+add_executable(grow_tests_m2
+    tests/test_milestone2.cpp
+)
+target_link_libraries(grow_tests_m2 PRIVATE
+    grow_core
+    GTest::gtest_main
+)
+gtest_discover_tests(grow_tests_m2)
 
 
 # 8. Optional Doxygen API Documentation Target (`cmake --build build --target docs`)
